@@ -1,0 +1,6 @@
+{
+  "name": "RememberAI — 망각곡선 기반 AI 맞춤형 복습 앱",
+  "description": "에빙하우스 망각곡선과 경량 인공신경망(MLP)으로 개인별 망각곡선을 보정하고 Gemini Google Search 기반 난이도별 퀴즈로 학습 내용을 점검하는 에듀테크 웹 애플리케이션",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

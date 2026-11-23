@@ -1,0 +1,371 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core security primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation Blueprints
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() <= 100
+        && data.email is string
+        && data.email.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCard(data, userId, cardId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'subject', 'title', 'note',
+          'difficulty', 'elapsedDays', 'reviewCount',
+          'lastOutcome', 'lastReviewedAt', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'subject', 'title', 'note',
+          'difficulty', 'elapsedDays', 'reviewCount',
+          'lastOutcome', 'lastReviewedAt',
+          'cluster', 'clusterReason', 'aiDifficultyReason', 'estimatedMinutes',
+          'clozeQuestion', 'clozeAnswer', 'clozeHint', 'clozeExplanation',
+          'unresolvedWeaknessCount', 'weaknessSeverityScore',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id is string
+        && data.id.size() >= 1
+        && data.id.size() <= 128
+        && data.id == cardId
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 20
+        && data.subject in ['영어', '통합과학', '한국사', '수학', '국어', '기타']
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 120
+        && data.note is string
+        && data.note.size() <= 600
+        && data.difficulty is int
+        && data.difficulty in [1, 2, 3]
+        && data.elapsedDays is number
+        && data.elapsedDays >= 0
+        && data.elapsedDays <= 365
+        && data.reviewCount is int
+        && data.reviewCount >= 0
+        && data.reviewCount <= 10000
+        && data.lastOutcome is string
+        && data.lastOutcome.size() >= 1
+        && data.lastOutcome.size() <= 20
+        && data.lastOutcome in ['none', 'remembered', 'confused', 'forgotten']
+        && data.lastReviewedAt is string
+        && data.lastReviewedAt.size() <= 60
+        && (!('cluster' in data) || (data.cluster is string && data.cluster in ['vocab', 'concept', 'formula']))
+        && (!('clusterReason' in data) || (data.clusterReason is string && data.clusterReason.size() <= 300))
+        && (!('aiDifficultyReason' in data) || (data.aiDifficultyReason is string && data.aiDifficultyReason.size() <= 300))
+        && (!('estimatedMinutes' in data) || (data.estimatedMinutes is int && data.estimatedMinutes >= 1 && data.estimatedMinutes <= 180))
+        && (!('clozeQuestion' in data) || (data.clozeQuestion is string && data.clozeQuestion.size() <= 400))
+        && (!('clozeAnswer' in data) || (data.clozeAnswer is string && data.clozeAnswer.size() <= 120))
+        && (!('clozeHint' in data) || (data.clozeHint is string && data.clozeHint.size() <= 200))
+        && (!('clozeExplanation' in data) || (data.clozeExplanation is string && data.clozeExplanation.size() <= 400))
+        && (!('unresolvedWeaknessCount' in data) || (data.unresolvedWeaknessCount is int && data.unresolvedWeaknessCount >= 0 && data.unresolvedWeaknessCount <= 100))
+        && (!('weaknessSeverityScore' in data) || (data.weaknessSeverityScore is number && data.weaknessSeverityScore >= 0 && data.weaknessSeverityScore <= 200))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidModelState(data, userId) {
+      return data.keys().hasAll(['ownerId', 'w1Flat', 'b1', 'w2', 'b2', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'w1Flat', 'b1', 'w2', 'b2', 'updatedAt'])
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.w1Flat is list
+        && data.w1Flat.size() == 16
+        && data.w1Flat[0] is number
+        && data.b1 is list
+        && data.b1.size() == 4
+        && data.b1[0] is number
+        && data.w2 is list
+        && data.w2.size() == 4
+        && data.w2[0] is number
+        && data.b2 is number
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLog(data, userId, logId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'cardId', 'cardTitle', 'subject', 'outcome',
+          'difficulty', 'elapsedDays', 'reviewCountAfter',
+          'inputs', 'hiddenActivations', 'outputBefore', 'outputAfter',
+          'target', 'loss', 'residualPctBefore', 'residualPctAfter',
+          'optimalDayBefore', 'optimalDayAfter', 'deltaW2', 'timestamp', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'cardId', 'cardTitle', 'subject', 'outcome',
+          'difficulty', 'elapsedDays', 'reviewCountAfter',
+          'inputs', 'hiddenActivations', 'outputBefore', 'outputAfter',
+          'target', 'loss', 'residualPctBefore', 'residualPctAfter',
+          'optimalDayBefore', 'optimalDayAfter', 'deltaW2', 'timestamp', 'createdAt'
+        ])
+        && data.id is string
+        && data.id.size() >= 1
+        && data.id.size() <= 128
+        && data.id == logId
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.cardId is string
+        && data.cardId.size() >= 1
+        && data.cardId.size() <= 128
+        && data.cardTitle is string
+        && data.cardTitle.size() >= 1
+        && data.cardTitle.size() <= 120
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 20
+        && data.subject in ['영어', '통합과학', '한국사', '수학', '국어', '기타']
+        && data.outcome is string
+        && data.outcome.size() >= 1
+        && data.outcome.size() <= 20
+        && data.outcome in ['remembered', 'confused', 'forgotten']
+        && data.difficulty is int
+        && data.difficulty in [1, 2, 3]
+        && data.elapsedDays is number
+        && data.reviewCountAfter is int
+        && data.inputs is list
+        && data.inputs.size() == 4
+        && data.inputs[0] is number
+        && data.hiddenActivations is list
+        && data.hiddenActivations.size() == 4
+        && data.hiddenActivations[0] is number
+        && data.outputBefore is number
+        && data.outputAfter is number
+        && data.target is number
+        && data.loss is number
+        && data.residualPctBefore is number
+        && data.residualPctAfter is number
+        && data.optimalDayBefore is number
+        && data.optimalDayAfter is number
+        && data.deltaW2 is list
+        && data.deltaW2.size() == 4
+        && data.deltaW2[0] is number
+        && data.timestamp is string
+        && data.timestamp.size() <= 30
+        && data.createdAt is timestamp;
+    }
+
+    function isValidWeakPoint(data, userId, weakPointId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'cardId', 'cardTitle', 'subject',
+          'concept', 'detail', 'severity', 'resolved',
+          'attemptCount', 'createdAtLabel', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'cardId', 'cardTitle', 'subject',
+          'concept', 'detail', 'severity', 'resolved',
+          'attemptCount', 'createdAtLabel', 'resolvedAtLabel', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string
+        && data.id.size() >= 1
+        && data.id.size() <= 128
+        && data.id == weakPointId
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.cardId is string
+        && data.cardId.size() >= 1
+        && data.cardId.size() <= 128
+        && data.cardTitle is string
+        && data.cardTitle.size() >= 1
+        && data.cardTitle.size() <= 120
+        && data.subject is string
+        && data.subject.size() >= 1
+        && data.subject.size() <= 20
+        && data.subject in ['영어', '통합과학', '한국사', '수학', '국어', '기타']
+        && data.concept is string
+        && data.concept.size() >= 1
+        && data.concept.size() <= 160
+        && data.detail is string
+        && data.detail.size() >= 1
+        && data.detail.size() <= 500
+        && data.severity is string
+        && data.severity.size() >= 1
+        && data.severity.size() <= 10
+        && data.severity in ['high', 'medium']
+        && data.resolved is bool
+        && data.attemptCount is int
+        && data.attemptCount >= 0
+        && data.attemptCount <= 1000
+        && data.createdAtLabel is string
+        && data.createdAtLabel.size() <= 40
+        && (!('resolvedAtLabel' in data) || (data.resolvedAtLabel is string && data.resolvedAtLabel.size() <= 40))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Private User Profile (PII isolated strictly to owner)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt']);
+      allow delete: if false;
+
+      // User's Study Cards Subcollection
+      match /cards/{cardId} {
+        allow get: if isValidId(userId) && isValidId(cardId) && isOwner(userId);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(cardId)
+          && isOwner(userId)
+          && isValidCard(incoming(), userId, cardId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(cardId)
+          && isOwner(userId)
+          && isValidCard(incoming(), userId, cardId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action: Review completion updates difficulty, elapsedDays, reviewCount, lastOutcome, lastReviewedAt, and optional weakness counts
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'difficulty', 'elapsedDays', 'reviewCount', 'lastOutcome', 'lastReviewedAt',
+              'unresolvedWeaknessCount', 'weaknessSeverityScore', 'updatedAt'
+            ]) ||
+            // Action: Weakness status sync updates unresolvedWeaknessCount and weaknessSeverityScore
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'unresolvedWeaknessCount', 'weaknessSeverityScore', 'updatedAt'
+            ]) ||
+            // Action: Time simulation advances elapsedDays and lastReviewedAt
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'elapsedDays', 'lastReviewedAt', 'updatedAt'
+            ]) ||
+            // Action: Attaching or regenerating a Gemini cloze quiz on an existing card
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'clozeQuestion', 'clozeAnswer', 'clozeHint', 'clozeExplanation', 'updatedAt'
+            ])
+          );
+        allow delete: if isValidId(userId) && isValidId(cardId) && isOwner(userId);
+      }
+
+      // User's MLP Model Weights Document
+      match /modelState/{stateId} {
+        allow get: if isValidId(userId) && isValidId(stateId) && stateId == 'mlp' && isOwner(userId);
+        allow list: if false;
+        allow create: if isValidId(userId)
+          && isValidId(stateId)
+          && stateId == 'mlp'
+          && isOwner(userId)
+          && isValidModelState(incoming(), userId)
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(stateId)
+          && stateId == 'mlp'
+          && isOwner(userId)
+          && isValidModelState(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['w1Flat', 'b1', 'w2', 'b2', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(stateId) && stateId == 'mlp' && isOwner(userId);
+      }
+
+      // User's Training Logs Subcollection
+      match /logs/{logId} {
+        allow get: if isValidId(userId) && isValidId(logId) && isOwner(userId);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && isValidLog(incoming(), userId, logId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(logId) && isOwner(userId);
+      }
+
+      // User's Collected Blank-Page Weak Points Subcollection
+      match /weakPoints/{weakPointId} {
+        allow get: if isValidId(userId) && isValidId(weakPointId) && isOwner(userId);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(weakPointId)
+          && isOwner(userId)
+          && isValidWeakPoint(incoming(), userId, weakPointId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(weakPointId)
+          && isOwner(userId)
+          && isValidWeakPoint(incoming(), userId, weakPointId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().cardId == existing().cardId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'concept', 'detail', 'severity', 'resolved',
+            'attemptCount', 'resolvedAtLabel', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(weakPointId) && isOwner(userId);
+      }
+    }
+  }
+}

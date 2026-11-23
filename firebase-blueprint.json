@@ -1,0 +1,405 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile document isolated per user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID matching document ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name.",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User verified email address.",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "StudyCard": {
+      "title": "StudyCard",
+      "description": "A personalized learning concept card tracked on the forgetting curve.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Card document ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["영어", "통합과학", "한국사", "수학", "국어", "기타"],
+          "maxLength": 20
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "difficulty": {
+          "type": "integer",
+          "description": "1 (easy), 2 (medium), 3 (hard)."
+        },
+        "elapsedDays": {
+          "type": "number",
+          "description": "Elapsed days since last learning/review."
+        },
+        "reviewCount": {
+          "type": "integer",
+          "description": "Cumulative number of reviews completed."
+        },
+        "lastOutcome": {
+          "type": "string",
+          "enum": ["none", "remembered", "confused", "forgotten"],
+          "maxLength": 20
+        },
+        "lastReviewedAt": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "cluster": {
+          "type": "string",
+          "enum": ["vocab", "concept", "formula"],
+          "maxLength": 20
+        },
+        "clusterReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "aiDifficultyReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "estimatedMinutes": {
+          "type": "integer",
+          "description": "Estimated review time in minutes (1..180)."
+        },
+        "clozeQuestion": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "clozeAnswer": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "clozeHint": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "clozeExplanation": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "unresolvedWeaknessCount": {
+          "type": "integer",
+          "description": "Number of unresolved weak points for this card (0..100)."
+        },
+        "weaknessSeverityScore": {
+          "type": "number",
+          "description": "Weighted severity score of unresolved weak points (0..200)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "subject",
+        "title",
+        "note",
+        "difficulty",
+        "elapsedDays",
+        "reviewCount",
+        "lastOutcome",
+        "lastReviewedAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MLPModelState": {
+      "title": "MLPModelState",
+      "description": "User-personalized 4-4-1 Residual MLP neural network weights.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "w1Flat": {
+          "type": "array",
+          "description": "Flattened 4x4 input-to-hidden weights (16 numbers)."
+        },
+        "b1": {
+          "type": "array",
+          "description": "Hidden layer biases (4 numbers)."
+        },
+        "w2": {
+          "type": "array",
+          "description": "Hidden-to-output weights (4 numbers)."
+        },
+        "b2": {
+          "type": "number",
+          "description": "Output bias."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "w1Flat", "b1", "w2", "b2", "updatedAt"]
+    },
+    "TrainingLog": {
+      "title": "TrainingLog",
+      "description": "Backpropagation training log entry created when a user submits a review.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cardId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cardTitle": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["영어", "통합과학", "한국사", "수학", "국어", "기타"],
+          "maxLength": 20
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["remembered", "confused", "forgotten"],
+          "maxLength": 20
+        },
+        "difficulty": {
+          "type": "integer"
+        },
+        "elapsedDays": {
+          "type": "number"
+        },
+        "reviewCountAfter": {
+          "type": "integer"
+        },
+        "inputs": {
+          "type": "array"
+        },
+        "hiddenActivations": {
+          "type": "array"
+        },
+        "outputBefore": {
+          "type": "number"
+        },
+        "outputAfter": {
+          "type": "number"
+        },
+        "target": {
+          "type": "number"
+        },
+        "loss": {
+          "type": "number"
+        },
+        "residualPctBefore": {
+          "type": "number"
+        },
+        "residualPctAfter": {
+          "type": "number"
+        },
+        "optimalDayBefore": {
+          "type": "number"
+        },
+        "optimalDayAfter": {
+          "type": "number"
+        },
+        "deltaW2": {
+          "type": "array"
+        },
+        "timestamp": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "cardId",
+        "cardTitle",
+        "subject",
+        "outcome",
+        "difficulty",
+        "elapsedDays",
+        "reviewCountAfter",
+        "inputs",
+        "hiddenActivations",
+        "outputBefore",
+        "outputAfter",
+        "target",
+        "loss",
+        "residualPctBefore",
+        "residualPctAfter",
+        "optimalDayBefore",
+        "optimalDayAfter",
+        "deltaW2",
+        "timestamp",
+        "createdAt"
+      ]
+    },
+    "WeaknessPoint": {
+      "title": "WeaknessPoint",
+      "description": "Collected weakness item extracted from blank-page retrieval for targeted retry.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cardId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cardTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["영어", "통합과학", "한국사", "수학", "국어", "기타"],
+          "maxLength": 20
+        },
+        "concept": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["high", "medium"],
+          "maxLength": 10
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "attemptCount": {
+          "type": "integer"
+        },
+        "createdAtLabel": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "resolvedAtLabel": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "cardId",
+        "cardTitle",
+        "subject",
+        "concept",
+        "detail",
+        "severity",
+        "resolved",
+        "attemptCount",
+        "createdAtLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile document."
+    },
+    "/users/{userId}/cards/{cardId}": {
+      "schema": { "$ref": "#/entities/StudyCard" },
+      "description": "User's study cards for forgetting curve tracking."
+    },
+    "/users/{userId}/modelState/{stateId}": {
+      "schema": { "$ref": "#/entities/MLPModelState" },
+      "description": "User's personalized MLP weights document (stateId = 'mlp')."
+    },
+    "/users/{userId}/logs/{logId}": {
+      "schema": { "$ref": "#/entities/TrainingLog" },
+      "description": "User's MLP backpropagation training history logs."
+    },
+    "/users/{userId}/weakPoints/{weakPointId}": {
+      "schema": { "$ref": "#/entities/WeaknessPoint" },
+      "description": "User's collected blank-page retrieval weak points for targeted retry."
+    }
+  }
+}
